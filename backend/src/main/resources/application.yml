@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/smart_data_querying?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:123456}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+app:
+  admin:
+    username: ${ADMIN_USERNAME:admin}
+    password-hash: "${ADMIN_PASSWORD_HASH:{plain}admin}"
+  jwt:
+    secret: ${JWT_SECRET:change-this-to-a-long-random-secret-at-least-32-chars}
+    ttl-minutes: 720
+  encryption:
+    secret: ${ENCRYPTION_SECRET:change-this-32-byte-secret-value!!}
+  query:
+    timeout-ms: ${QUERY_TIMEOUT_MS:10000}
+    default-limit: ${QUERY_DEFAULT_LIMIT:100}
+    max-limit: ${QUERY_MAX_LIMIT:1000}
+  llm:
+    base-url: ${LLM_BASE_URL:https://api.openai.com/v1}
+    api-key: ${LLM_API_KEY:}
+    model: ${LLM_MODEL:gpt-4o-mini}

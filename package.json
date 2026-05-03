@@ -1,0 +1,12 @@
+{
+  "name": "smart-data-querying",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build",
+    "backend:dev": "cd backend && mvn spring-boot:run",
+    "backend:test": "cd backend && mvn test"
+  }
+}
+
