@@ -1,10 +1,6 @@
 package com.smartdataquerying.service;
 
-import com.smartdataquerying.model.BusinessTerm;
-import com.smartdataquerying.model.DatasourceColumn;
-import com.smartdataquerying.model.DatasourceConfig;
-import com.smartdataquerying.model.DatasourceTable;
-import com.smartdataquerying.model.SqlExample;
+import com.smartdataquerying.model.*;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,10 +15,8 @@ public class PromptService {
                 .map(this::tableBlock)
                 .collect(Collectors.joining("\n\n"));
         String termBlock = terms.stream()
-                .map(term -> "- " + term.name + ": " + term.definitionText
-                        + optional(" Synonyms: ", term.synonyms)
-                        + optional(" Calculation: ", term.calculation))
-                .collect(Collectors.joining("\n"));
+                .map(this::termBlock)
+                .collect(Collectors.joining("\n\n"));
         String exampleBlock = examples.stream()
                 .map(example -> "Question: " + example.question + "\nSQL: " + example.sqlText)
                 .collect(Collectors.joining("\n\n"));
@@ -33,21 +27,27 @@ public class PromptService {
                 - Generate exactly one SELECT statement.
                 - Do not use INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, TRUNCATE.
                 - Only use tables and columns listed below.
+                - Business terms are authoritative semantic assets. Apply their field bindings, filters, formulas, value mappings, and business rules before guessing.
+                - For sales opportunity questions, prefer terms in the 销售商机 domain and use configured term bindings to choose tables and columns.
+                - If a metric term has a calculation, implement the metric exactly with the mapped fields.
+                - If a term defines filters or value mappings, apply them in WHERE/CASE logic when relevant.
+                - If a user question conflicts with a business term, follow the business term and explain that choice.
                 - Do not select columns marked sensitive or disabled.
+                - If a table or column name contains Chinese characters, spaces, punctuation, or reserved words, quote it with backticks.
                 - Prefer clear aliases when useful.
-                
+
                 Database schema:
                 %s
-                
-                Business terms:
+
+                Business semantic assets:
                 %s
-                
+
                 SQL examples:
                 %s
-                
+
                 User question:
                 %s
-                """.formatted(datasource.type, schema, blank(termBlock), blank(exampleBlock), question);
+                """.formatted(datasource.type, blank(schema), blank(termBlock), blank(exampleBlock), question);
     }
 
     private String tableBlock(DatasourceTable table) {
@@ -55,13 +55,39 @@ public class PromptService {
                 .filter(column -> column.enabled)
                 .map(this::columnLine)
                 .collect(Collectors.joining("\n"));
-        return "Table: " + qualify(table) + optional(" -- ", table.commentText) + "\n" + columns;
+        return "Table: " + qualify(table)
+                + optional(" -- display name: ", table.commentText)
+                + "\n" + columns;
     }
 
     private String columnLine(DatasourceColumn column) {
         return "- " + column.columnName + " " + column.dataType
                 + (column.sensitive ? " sensitive" : "")
                 + optional(" -- ", column.commentText);
+    }
+
+    private String termBlock(BusinessTerm term) {
+        String bindings = term.bindings.stream()
+                .filter(binding -> binding.enabled)
+                .map(this::bindingLine)
+                .collect(Collectors.joining("\n"));
+        return "- " + term.name
+                + "\n  domain: " + value(term.domain)
+                + "\n  type: " + value(term.termType)
+                + "\n  aliases: " + value(firstNonBlank(term.aliases, term.synonyms))
+                + "\n  definition: " + value(term.definitionText)
+                + optional("\n  calculation: ", term.calculation)
+                + optional("\n  business_rules: ", term.businessRules)
+                + optional("\n  bindings:\n", bindings);
+    }
+
+    private String bindingLine(BusinessTermBinding binding) {
+        return "    - "
+                + "table=" + value(binding.tableName)
+                + ", column=" + value(binding.columnName)
+                + ", role=" + value(binding.fieldRole)
+                + optional(", filter=", binding.filterExpression)
+                + optional(", values=", binding.valueMappings);
     }
 
     private String qualify(DatasourceTable table) {
@@ -74,8 +100,15 @@ public class PromptService {
         return value == null || value.isBlank() ? "" : prefix + value;
     }
 
+    private String value(Object value) {
+        return value == null || value.toString().isBlank() ? "(none)" : value.toString();
+    }
+
     private String blank(String value) {
         return value == null || value.isBlank() ? "(none)" : value;
     }
-}
 
+    private String firstNonBlank(String left, String right) {
+        return left == null || left.isBlank() ? right : left;
+    }
+}

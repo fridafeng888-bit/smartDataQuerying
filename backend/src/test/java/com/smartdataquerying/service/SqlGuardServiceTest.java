@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SqlGuardServiceTest {
     private final SqlGuardService guard = new SqlGuardService(new AppProperties(
-            null, null, null, new AppProperties.Query(10000, 100, 1000), null));
+            null, null, null, new AppProperties.Query(10000, 100, 1000), null, null));
 
     @Test
     void appendsDefaultLimit() {
@@ -32,6 +32,13 @@ class SqlGuardServiceTest {
         assertThrows(RuntimeException.class, () -> guard.validateAndRewrite("select phone from users", List.of(table)));
     }
 
+    @Test
+    void acceptsBacktickQuotedTableName() {
+        DatasourceTable table = table("imp_20260504082451_a2072993", column("订单金额", false));
+        String sql = guard.validateAndRewrite("select `订单金额` from `imp_20260504082451_a2072993`", List.of(table));
+        assertTrue(sql.toLowerCase().contains("limit 100"));
+    }
+
     private DatasourceTable table(String name, DatasourceColumn... columns) {
         DatasourceTable table = new DatasourceTable();
         table.tableName = name;
@@ -49,4 +56,3 @@ class SqlGuardServiceTest {
         return column;
     }
 }
-

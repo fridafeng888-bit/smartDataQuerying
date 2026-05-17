@@ -60,6 +60,9 @@ public class DatasourceService {
 
     public TestConnectionResponse test(Long id) {
         DatasourceConfig datasource = find(id);
+        if (datasource.type == DatasourceType.EXCEL_IMPORT) {
+            return new TestConnectionResponse(true, "Excel import datasource uses the system MySQL connection");
+        }
         try (Connection ignored = connectionFactory.open(datasource)) {
             return new TestConnectionResponse(true, "Connection successful");
         } catch (Exception ex) {
@@ -70,6 +73,9 @@ public class DatasourceService {
     @Transactional
     public List<TableResponse> sync(Long id) {
         DatasourceConfig datasource = find(id);
+        if (datasource.type == DatasourceType.EXCEL_IMPORT) {
+            return tables(id);
+        }
         tableRepository.deleteByDatasourceId(id);
         try (Connection connection = connectionFactory.open(datasource);
              Statement statement = connection.createStatement();
@@ -143,6 +149,15 @@ public class DatasourceService {
         datasource.username = request.username();
         datasource.sslEnabled = request.sslEnabled();
         datasource.enabled = request.enabled();
+        if (request.type() == DatasourceType.EXCEL_IMPORT) {
+            datasource.host = "system";
+            datasource.port = 0;
+            datasource.databaseName = "smart_data_querying";
+            datasource.username = "system";
+            datasource.sslEnabled = false;
+            datasource.encryptedPassword = "";
+            return;
+        }
         if (create || (request.password() != null && !request.password().isBlank())) {
             datasource.encryptedPassword = cryptoService.encrypt(request.password());
         }
@@ -182,4 +197,3 @@ public class DatasourceService {
                 column.commentText, column.sensitive, column.enabled, column.ordinalPosition);
     }
 }
-

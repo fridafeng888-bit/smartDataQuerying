@@ -44,19 +44,19 @@ public class SqlGuardService {
         Set<String> sensitiveColumns = new HashSet<>();
         for (DatasourceTable table : tables) {
             if (!table.enabled) continue;
-            enabledTables.add(table.tableName.toLowerCase(Locale.ROOT));
+            enabledTables.add(normalizeIdentifier(table.tableName));
             if (table.schemaName != null) {
-                enabledTables.add((table.schemaName + "." + table.tableName).toLowerCase(Locale.ROOT));
+                enabledTables.add(normalizeIdentifier(table.schemaName + "." + table.tableName));
             }
             for (DatasourceColumn column : table.columns) {
                 if (column.sensitive || !column.enabled) {
-                    sensitiveColumns.add(column.columnName.toLowerCase(Locale.ROOT));
+                    sensitiveColumns.add(normalizeIdentifier(column.columnName));
                 }
             }
         }
         List<String> referencedTables = new TablesNamesFinder().getTableList(statement);
         for (String table : referencedTables) {
-            if (!enabledTables.contains(table.toLowerCase(Locale.ROOT))) {
+            if (!enabledTables.contains(normalizeIdentifier(table))) {
                 throw rejected("Table is not enabled or unknown: " + table);
             }
         }
@@ -86,5 +86,15 @@ public class SqlGuardService {
     private AppException rejected(String message) {
         return new AppException(HttpStatus.BAD_REQUEST, "SQL_REJECTED", message);
     }
-}
 
+    private String normalizeIdentifier(String identifier) {
+        if (identifier == null) {
+            return "";
+        }
+        return identifier
+                .replace("`", "")
+                .replace("\"", "")
+                .trim()
+                .toLowerCase(Locale.ROOT);
+    }
+}

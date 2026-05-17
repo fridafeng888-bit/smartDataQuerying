@@ -2,6 +2,6 @@ package com.smartdataquerying.model;
 
 public enum DatasourceType {
     MYSQL,
-    POSTGRESQL
+    POSTGRESQL,
+    EXCEL_IMPORT
 }
-

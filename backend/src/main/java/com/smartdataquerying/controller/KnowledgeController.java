@@ -28,6 +28,11 @@ public class KnowledgeController {
         return ApiResponse.ok(service.createTerm(request));
     }
 
+    @PostMapping("/api/terms/templates/sales-opportunity")
+    public ApiResponse<List<BusinessTerm>> seedSalesOpportunityTemplate() {
+        return ApiResponse.ok(service.seedSalesOpportunityTemplate());
+    }
+
     @PatchMapping("/api/terms/{id}")
     public ApiResponse<BusinessTerm> updateTerm(@PathVariable Long id, @RequestBody TermRequest request) {
         return ApiResponse.ok(service.updateTerm(id, request));
@@ -60,4 +65,3 @@ public class KnowledgeController {
         return ApiResponse.ok(null);
     }
 }
-

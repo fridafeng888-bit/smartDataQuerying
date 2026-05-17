@@ -5,6 +5,7 @@ import com.smartdataquerying.model.DatasourceConfig;
 import org.springframework.stereotype.Service;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Statement;
@@ -44,7 +45,22 @@ public class QueryService {
         }
     }
 
+    public boolean tableExists(DatasourceConfig datasource, String tableName) {
+        try (Connection connection = connectionFactory.open(datasource)) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            try (ResultSet rs = metaData.getTables(connection.getCatalog(), null, tableName, new String[]{"TABLE"})) {
+                if (rs.next()) {
+                    return true;
+                }
+            }
+            try (ResultSet rs = metaData.getTables(null, null, tableName, new String[]{"TABLE"})) {
+                return rs.next();
+            }
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     public record QueryResult(List<String> columns, List<Map<String, Object>> rows, long durationMs) {
     }
 }
-

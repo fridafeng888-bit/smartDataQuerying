@@ -9,6 +9,6 @@ import java.util.List;
 public interface DatasourceTableRepository extends JpaRepository<DatasourceTable, Long> {
     @EntityGraph(attributePaths = "columns")
     List<DatasourceTable> findByDatasourceIdOrderBySchemaNameAscTableNameAsc(Long datasourceId);
+    List<DatasourceTable> findByDatasourceIdAndTableName(Long datasourceId, String tableName);
     void deleteByDatasourceId(Long datasourceId);
 }
-

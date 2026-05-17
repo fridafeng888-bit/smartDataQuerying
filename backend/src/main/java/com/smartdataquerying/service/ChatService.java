@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.ArrayList;
 
 @Service
 public class ChatService {
@@ -71,8 +72,10 @@ public class ChatService {
                 ? createSession(new CreateSessionRequest(titleFromQuestion(request.question())))
                 : sessionRepository.findById(request.sessionId())
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "Session not found"));
-        List<DatasourceTable> tables = tableRepository.findByDatasourceIdOrderBySchemaNameAscTableNameAsc(datasource.id);
-        String prompt = promptService.build(datasource, tables, knowledgeService.recallTerms(request.question()),
+        List<DatasourceTable> tables = activeTables(datasource);
+        List<BusinessTerm> terms = knowledgeService.recallTerms(request.question());
+        List<DatasourceTable> scopedTables = knowledgeService.scopeTables(tables, terms);
+        String prompt = promptService.build(datasource, scopedTables, terms,
                 knowledgeService.recallExamples(request.question(), datasource.id), request.question());
 
         saveMessage(session, "user", request.question(), null, null, null);
@@ -85,7 +88,8 @@ public class ChatService {
             JsonNode json = parseLlmJson(llmService.complete(prompt));
             String sql = json.path("sql").asText();
             String explanation = json.path("explanation").asText();
-            String safeSql = sqlGuardService.validateAndRewrite(sql, tables);
+            String safeSql = sqlGuardService.validateAndRewrite(sql, scopedTables);
+            knowledgeService.validateGeneratedSql(request.question(), safeSql, terms);
             QueryService.QueryResult result = queryService.execute(datasource, safeSql);
             execution.generatedSql = safeSql;
             execution.status = QueryStatus.SUCCESS;
@@ -111,7 +115,8 @@ public class ChatService {
     }
 
     public ValidateResponse validate(Long datasourceId, String sql) {
-        List<DatasourceTable> tables = tableRepository.findByDatasourceIdOrderBySchemaNameAscTableNameAsc(datasourceId);
+        DatasourceConfig datasource = datasourceService.find(datasourceId);
+        List<DatasourceTable> tables = activeTables(datasource);
         String safeSql = sqlGuardService.validateAndRewrite(sql, tables);
         return new ValidateResponse(true, safeSql, "SQL is safe to execute");
     }
@@ -147,5 +152,18 @@ public class ChatService {
         if (question == null || question.isBlank()) return "New chat";
         return question.length() > 32 ? question.substring(0, 32) : question;
     }
-}
 
+    private List<DatasourceTable> activeTables(DatasourceConfig datasource) {
+        List<DatasourceTable> tables = tableRepository.findByDatasourceIdOrderBySchemaNameAscTableNameAsc(datasource.id);
+        if (datasource.type != DatasourceType.EXCEL_IMPORT) {
+            return tables;
+        }
+        List<DatasourceTable> active = new ArrayList<>();
+        for (DatasourceTable table : tables) {
+            if (queryService.tableExists(datasource, table.tableName)) {
+                active.add(table);
+            }
+        }
+        return active;
+    }
+}
